@@ -1,0 +1,13 @@
+{
+  "name": "auth-system",
+  "version": "1.0.0",
+  "main": "web.js",
+  "scripts": {
+    "start": "node web.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "express-session": "^1.17.3",
+    "better-sqlite3": "^9.0.0"
+  }
+}
