@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Love Gen</title>
+<title>Img Gen</title>
 <style>
   :root{--bg:#0f0b14;--card:#1b1424;--accent:#ff4d8d;--text:#f5eefa;--muted:#a99bb8}
   *{box-sizing:border-box}
@@ -11,13 +11,18 @@
   header{padding:16px;text-align:center;font-weight:700;font-size:20px}
   header span{color:var(--accent)}
   .panel{max-width:520px;margin:0 auto;padding:0 16px 16px}
-  textarea,select{width:100%;background:var(--card);color:var(--text);border:1px solid #3a2b4a;border-radius:12px;padding:12px;font-size:16px;margin-bottom:10px}
+  textarea,select,input{width:100%;background:var(--card);color:var(--text);border:1px solid #3a2b4a;border-radius:12px;padding:12px;font-size:16px;margin-bottom:10px}
   textarea{min-height:80px;resize:vertical}
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
   .chip{background:var(--card);border:1px solid #3a2b4a;color:var(--text);padding:8px 12px;border-radius:999px;font-size:14px;cursor:pointer}
   .chip:hover{border-color:var(--accent)}
   button.go{width:100%;background:var(--accent);color:#fff;border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:700;cursor:pointer}
   button.go:disabled{opacity:.6}
+  details{background:var(--card);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+  summary{cursor:pointer;color:var(--muted)}
+  details input{margin-top:10px;margin-bottom:6px}
+  .hint{color:var(--muted);font-size:12px}
+  .hint a{color:var(--accent)}
   .note{color:var(--muted);font-size:12px;text-align:center;margin-top:10px}
   .feed{height:80vh;overflow-y:scroll;scroll-snap-type:y mandatory;max-width:420px;margin:12px auto 0}
   .item{height:80vh;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;position:relative;padding:8px}
@@ -27,66 +32,116 @@
 </style>
 </head>
 <body>
-<header>💞 Love<span>Gen</span></header>
+<header>🎨 Img<span>Gen</span></header>
 <div class="panel">
   <div class="chips" id="chips"></div>
-  <textarea id="prompt" placeholder="Опиши сцену: двое взрослых обнимаются на закате у моря..."></textarea>
+  <textarea id="prompt" placeholder="Опиши картинку: что угодно (пейзаж, персонаж, город, еда, фэнтези, пара на закате...)"></textarea>
   <select id="style">
+    <option value="">Без стиля</option>
     <option value="cinematic photo, soft light">Кино-фото</option>
     <option value="anime style, soft colors">Аниме</option>
     <option value="digital painting, dreamy">Арт</option>
     <option value="watercolor illustration">Акварель</option>
+    <option value="3d render, pixar-like lighting">3D</option>
   </select>
   <select id="ratio">
     <option value="768x1024">Вертикально 3:4</option>
     <option value="1024x1024">Квадрат</option>
     <option value="1024x768">Горизонтально</option>
   </select>
+  <select id="provider">
+    <option value="pollinations">Pollinations (без ключа)</option>
+    <option value="hf">Hugging Face (бесплатный ключ)</option>
+  </select>
+  <details id="keybox" style="display:none">
+    <summary>API-ключ Hugging Face</summary>
+    <input id="hfkey" type="password" placeholder="hf_..." autocomplete="off">
+    <div class="hint">Бесплатный токен: <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">huggingface.co/settings/tokens</a> (тип Read). Ключ хранится только в твоём браузере и никуда, кроме Hugging Face, не отправляется.</div>
+  </details>
   <button class="go" id="go">Сгенерировать</button>
-  <div class="note">Только взрослые персонажи, одетые, романтика без откровенного контента. Включён безопасный фильтр.</div>
+  <div class="note">Любые темы, но без откровенного 18+ контента и без детей: включён безопасный фильтр.</div>
 </div>
 <div class="feed" id="feed"></div>
 
 <script>
 const PRESETS=[
-  "двое взрослых обнимаются на закате у моря",
-  "пара целуется под дождём с зонтом",
-  "влюблённые обнимаются в осеннем парке",
-  "поцелуй на крыше города ночью",
-  "пара танцует медленный танец в гостиной",
-  "объятия на вокзале после долгой разлуки"
+  "космический корабль над неоновым городом",
+  "уютный домик в лесу осенью",
+  "дракон на вершине горы на рассвете",
+  "пара взрослых обнимается на закате у моря",
+  "киберпанк-улица под дождём",
+  "котик-астронавт на луне"
 ];
-const BLOCKED=/(nude|naked|nsfw|sex|porn|explicit|topless|lingerie|erotic|голы|обнажен|секс|порно|эрот|интим|белье|бельё|child|kid|teen|minor|school|ребен|ребён|дет[иь]|школь|подрост|несовершеннолет)/i;
-const chips=document.getElementById('chips'),prompt_=document.getElementById('prompt'),
-      feed=document.getElementById('feed'),go=document.getElementById('go');
+const BLOCKED=/(nude|naked|nsfw|sex|porn|explicit|topless|lingerie|erotic|голы|обнажен|секс|порно|эрот|интим|белье|бельё|child|kid|teen|minor|school|loli|ребен|ребён|дет[иь]|школь|подрост|несовершеннолет|лоли)/i;
+const $=id=>document.getElementById(id);
+const chips=$('chips'),feed=$('feed'),go=$('go'),prov=$('provider'),keybox=$('keybox'),hfkey=$('hfkey');
 PRESETS.forEach(p=>{const b=document.createElement('button');b.className='chip';b.textContent=p;
-  b.onclick=()=>prompt_.value=p;chips.appendChild(b)});
+  b.onclick=()=>$('prompt').value=p;chips.appendChild(b)});
+
+function lsGet(k,d){try{return localStorage.getItem(k)||d}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+hfkey.value=lsGet('hfkey','');
+prov.value=lsGet('provider','pollinations');
+function syncProv(){keybox.style.display=prov.value==='hf'?'block':'none';lsSet('provider',prov.value)}
+prov.onchange=syncProv;syncProv();
+hfkey.onchange=()=>lsSet('hfkey',hfkey.value.trim());
 
 let items=[];
-try{items=JSON.parse(localStorage.getItem('lovegen')||'[]')}catch(e){}
-function save(){try{localStorage.setItem('lovegen',JSON.stringify(items.slice(0,30)))}catch(e){}}
+try{items=JSON.parse(lsGet('imggen','[]'))}catch(e){}
+function save(){
+  // data: URLs are large; keep only http(s) links in storage
+  lsSet('imggen',JSON.stringify(items.filter(u=>u.startsWith('http')).slice(0,30)));
+}
 function render(){
   feed.innerHTML='';
   if(!items.length){feed.innerHTML='<div class="empty">Здесь появятся твои картинки. Выбери идею и нажми «Сгенерировать».</div>';return}
   items.forEach(u=>{
     const d=document.createElement('div');d.className='item';
-    d.innerHTML='<img loading="lazy" src="'+u+'" alt=""><a href="'+u+'" target="_blank" rel="noopener">Открыть</a>';
+    const dl=u.startsWith('data:')||u.startsWith('blob:');
+    d.innerHTML='<img loading="lazy" src="'+u+'" alt=""><a href="'+u+'" '+(dl?'download="image.png"':'target="_blank" rel="noopener"')+'>'+(dl?'Скачать':'Открыть')+'</a>';
     feed.appendChild(d);
   });
 }
-go.onclick=()=>{
-  const text=prompt_.value.trim();
-  if(!text){alert('Опиши сцену');return}
-  if(BLOCKED.test(text)){alert('Такой запрос нельзя. Допустимы только романтичные сцены со взрослыми, без откровенного контента.');return}
-  const [w,h]=document.getElementById('ratio').value.split('x');
-  const full=text+', two adults, fully clothed, wholesome romantic scene, '+document.getElementById('style').value;
+function done(url){items.unshift(url);save();render();feed.scrollTop=0;go.disabled=false;go.textContent='Сгенерировать'}
+function fail(msg){alert(msg);go.disabled=false;go.textContent='Сгенерировать'}
+
+go.onclick=async()=>{
+  const text=$('prompt').value.trim();
+  if(!text){alert('Опиши картинку');return}
+  if(BLOCKED.test(text)){alert('Такой запрос нельзя: откровенный контент и дети запрещены.');return}
+  const [w,h]=$('ratio').value.split('x');
+  const style=$('style').value;
+  const full=text+(style?', '+style:'')+', safe for work';
+  go.disabled=true;go.textContent='Генерирую...';
+
+  if(prov.value==='hf'){
+    const key=hfkey.value.trim();
+    if(!key){fail('Вставь ключ Hugging Face');return}
+    lsSet('hfkey',key);
+    try{
+      const r=await fetch('https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',{
+        method:'POST',
+        headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json','Accept':'image/png'},
+        body:JSON.stringify({inputs:full,parameters:{width:+w,height:+h}})
+      });
+      if(!r.ok){
+        const t=await r.text();
+        fail('Ошибка Hugging Face ('+r.status+'): '+t.slice(0,150));return;
+      }
+      const blob=await r.blob();
+      const reader=new FileReader();
+      reader.onload=()=>done(reader.result);
+      reader.readAsDataURL(blob);
+    }catch(e){fail('Не получилось связаться с Hugging Face: '+e.message)}
+    return;
+  }
+
   const seed=Math.floor(Math.random()*1e9);
   const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(full)
     +'?width='+w+'&height='+h+'&seed='+seed+'&nologo=true&safe=true';
-  go.disabled=true;go.textContent='Генерирую...';
   const img=new Image();
-  img.onload=()=>{items.unshift(url);save();render();feed.scrollTop=0;go.disabled=false;go.textContent='Сгенерировать'};
-  img.onerror=()=>{alert('Не получилось, попробуй ещё раз');go.disabled=false;go.textContent='Сгенерировать'};
+  img.onload=()=>done(url);
+  img.onerror=()=>fail('Не получилось, попробуй ещё раз');
   img.src=url;
 };
 render();
