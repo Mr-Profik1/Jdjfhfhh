@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Админка</title>
+<style>
+  :root{--bg:#0f0b14;--card:#1b1424;--accent:#ff4d8d;--text:#f5eefa;--muted:#a99bb8;--line:#3a2b4a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif}
+  header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;max-width:1000px;margin:0 auto}
+  header b{font-size:20px} header a,header button.link{color:var(--accent);background:none;border:0;cursor:pointer;font-size:14px;text-decoration:underline;padding:0}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 16px 40px}
+  input{width:100%;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:16px;margin-bottom:10px}
+  button.go{background:var(--accent);color:#fff;border:0;border-radius:12px;padding:12px 18px;font-size:16px;font-weight:700;cursor:pointer}
+  .box{background:var(--card);border-radius:16px;padding:16px;margin-top:8px;max-width:420px}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+  .stat{background:var(--card);border-radius:12px;padding:12px 18px}
+  .stat b{display:block;font-size:22px}
+  .stat span{color:var(--muted);font-size:13px}
+  h2{font-size:17px;margin:22px 0 10px}
+  .tabs{display:flex;gap:8px;margin-top:12px}
+  .tab{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer;font-size:14px}
+  .tab.on{border-color:var(--accent);color:var(--accent)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+  .card{background:var(--card);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+  .card img{width:100%;aspect-ratio:3/4;object-fit:cover;background:#000}
+  .card .t{padding:10px;font-size:13px;display:flex;flex-direction:column;gap:6px}
+  .muted{color:var(--muted);font-size:12px}
+  .prompt{word-break:break-word}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .sm{background:#2a2036;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer}
+  .sm.red{border-color:#ff7b7b;color:#ff9b9b}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{color:var(--muted);font-weight:500}
+  .msg{font-size:13px;margin:6px 0;color:#ff7b7b}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<header><b>🛡 Админка</b><div><a href="index.html">На сайт</a> <span id="who"></span></div></header>
+<div class="wrap">
+  <div class="box hidden" id="setup">Заполни <b>config.js</b> (см. README.md).</div>
+
+  <div class="box hidden" id="login">
+    <input type="email" id="email" placeholder="Почта администратора">
+    <input type="password" id="pass" placeholder="Пароль">
+    <button class="go" id="loginBtn">Войти</button>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <div class="hidden" id="panel">
+    <div class="stats" id="stats"></div>
+    <div class="tabs">
+      <button class="tab on" id="tabGen">Генерации</button>
+      <button class="tab" id="tabUsers">Пользователи</button>
+    </div>
+    <div id="genView"><h2>Последние генерации</h2><div class="grid" id="grid"></div></div>
+    <div id="usersView" class="hidden"><h2>Пользователи</h2><table id="users"></table></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+function show(id, on) { $(id).classList.toggle('hidden', !on); }
+
+$('loginBtn').onclick = async function () {
+  var r = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('pass').value });
+  $('loginMsg').textContent = r.error ? 'Не удалось войти: ' + r.error.message : '';
+};
+
+$('tabGen').onclick = function () { tab('gen'); };
+$('tabUsers').onclick = function () { tab('users'); };
+function tab(t) {
+  show('genView', t === 'gen'); show('usersView', t === 'users');
+  $('tabGen').classList.toggle('on', t === 'gen'); $('tabUsers').classList.toggle('on', t === 'users');
+}
+
+async function logout() { await sb.auth.signOut(); }
+
+async function onSession(session) {
+  var who = $('who'); who.textContent = '';
+  if (!session) { show('login', true); show('panel', false); return; }
+  var me = await sb.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
+  show('login', false);
+  if (!me.data || me.data.role !== 'admin') {
+    show('panel', false); show('login', true);
+    $('loginMsg').textContent = 'У этого аккаунта нет прав администратора.';
+    who.appendChild(el('button', { 'class': 'link', text: 'Выйти', onclick: logout }));
+    return;
+  }
+  who.appendChild(document.createTextNode(' · ' + session.user.email + ' · '));
+  who.appendChild(el('button', { 'class': 'link', text: 'Выйти', onclick: logout }));
+  show('panel', true);
+  loadAll();
+}
+
+async function count(table, filter) {
+  var q = sb.from(table).select('*', { count: 'exact', head: true });
+  if (filter) q = filter(q);
+  var r = await q; return r.count || 0;
+}
+
+async function loadAll() {
+  var since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  var res = await Promise.all([
+    count('profiles'), count('generations'),
+    count('generations', function (q) { return q.gte('created_at', since); }),
+    count('profiles', function (q) { return q.eq('banned', true); })
+  ]);
+  var st = $('stats'); st.textContent = '';
+  [['Пользователей', res[0]], ['Генераций всего', res[1]], ['За 24 часа', res[2]], ['Заблокировано', res[3]]].forEach(function (s) {
+    st.appendChild(el('div', { 'class': 'stat' }, [el('b', { text: String(s[1]) }), el('span', { text: s[0] })]));
+  });
+  loadGenerations(); loadUsers();
+}
+
+async function loadGenerations() {
+  var grid = $('grid'); grid.textContent = '';
+  var r = await sb.from('generations').select('id,prompt,provider,image_url,created_at,user_id,profiles(email)').order('created_at', { ascending: false }).limit(100);
+  if (r.error) { grid.appendChild(el('div', { 'class': 'muted', text: r.error.message })); return; }
+  if (!r.data.length) { grid.appendChild(el('div', { 'class': 'muted', text: 'Пока ничего нет' })); return; }
+  r.data.forEach(function (g) {
+    var email = g.profiles && g.profiles.email ? g.profiles.email : g.user_id;
+    var t = el('div', { 'class': 't' }, [
+      el('div', { 'class': 'prompt', text: g.prompt }),
+      el('div', { 'class': 'muted', text: email + ' · ' + fmtDate(g.created_at) + ' · ' + (g.provider || '') }),
+      el('div', { 'class': 'row' }, [
+        el('a', { 'class': 'sm', href: g.image_url, target: '_blank', rel: 'noopener', text: 'Открыть' }),
+        el('button', { 'class': 'sm red', text: 'Удалить', onclick: async function () {
+          if (!confirm('Удалить эту генерацию?')) return;
+          var d = await sb.from('generations').delete().eq('id', g.id);
+          if (d.error) alert(d.error.message); else loadAll();
+        } }),
+        el('button', { 'class': 'sm red', text: 'Бан автора', onclick: function () { setBan(g.user_id, true); } })
+      ])
+    ]);
+    grid.appendChild(el('div', { 'class': 'card' }, [el('img', { loading: 'lazy', src: g.image_url, alt: '' }), t]));
+  });
+}
+
+async function setBan(uid, val) {
+  if (val && !confirm('Заблокировать пользователя?')) return;
+  var r = await sb.from('profiles').update({ banned: val }).eq('id', uid);
+  if (r.error) alert(r.error.message); else loadAll();
+}
+
+async function loadUsers() {
+  var tbl = $('users'); tbl.textContent = '';
+  var r = await sb.from('profiles').select('id,email,role,banned,created_at').order('created_at', { ascending: false }).limit(200);
+  var head = el('tr', {}, ['Почта', 'Роль', 'Создан', 'Статус', ''].map(function (h) { return el('th', { text: h }); }));
+  tbl.appendChild(head);
+  if (r.error) { tbl.appendChild(el('tr', {}, [el('td', { text: r.error.message })])); return; }
+  r.data.forEach(function (u) {
+    var btn = u.role === 'admin' ? el('span', { 'class': 'muted', text: '—' }) :
+      el('button', { 'class': 'sm' + (u.banned ? '' : ' red'), text: u.banned ? 'Разблокировать' : 'Заблокировать', onclick: function () { setBan(u.id, !u.banned); } });
+    tbl.appendChild(el('tr', {}, [
+      el('td', { text: u.email || u.id }), el('td', { text: u.role }), el('td', { text: fmtDate(u.created_at) }),
+      el('td', { text: u.banned ? 'заблокирован' : 'активен' }), el('td', {}, [btn])
+    ]));
+  });
+}
+
+(async function () {
+  if (!configured()) { show('setup', true); return; }
+  sb.auth.onAuthStateChange(function (ev, session) { onSession(session); });
+  var s = await sb.auth.getSession();
+  onSession(s.data.session);
+})();
+</script>
+</body>
+</html>

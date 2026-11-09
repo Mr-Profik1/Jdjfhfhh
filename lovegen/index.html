@@ -5,66 +5,110 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Img Gen</title>
 <style>
-  :root{--bg:#0f0b14;--card:#1b1424;--accent:#ff4d8d;--text:#f5eefa;--muted:#a99bb8}
+  :root{--bg:#0f0b14;--card:#1b1424;--accent:#ff4d8d;--text:#f5eefa;--muted:#a99bb8;--line:#3a2b4a}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif}
-  header{padding:16px;text-align:center;font-weight:700;font-size:20px}
-  header span{color:var(--accent)}
+  header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;max-width:520px;margin:0 auto}
+  header b{font-size:20px} header b span{color:var(--accent)}
+  header .me{font-size:13px;color:var(--muted);text-align:right}
+  header a,header button.link{color:var(--accent);background:none;border:0;cursor:pointer;font-size:13px;text-decoration:underline;padding:0}
   .panel{max-width:520px;margin:0 auto;padding:0 16px 16px}
-  textarea,select,input{width:100%;background:var(--card);color:var(--text);border:1px solid #3a2b4a;border-radius:12px;padding:12px;font-size:16px;margin-bottom:10px}
+  textarea,select,input[type=text],input[type=email],input[type=password]{width:100%;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:16px;margin-bottom:10px}
   textarea{min-height:80px;resize:vertical}
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-  .chip{background:var(--card);border:1px solid #3a2b4a;color:var(--text);padding:8px 12px;border-radius:999px;font-size:14px;cursor:pointer}
+  .chip{background:var(--card);border:1px solid var(--line);color:var(--text);padding:8px 12px;border-radius:999px;font-size:14px;cursor:pointer}
   .chip:hover{border-color:var(--accent)}
-  button.go{width:100%;background:var(--accent);color:#fff;border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:700;cursor:pointer}
-  button.go:disabled{opacity:.6}
+  button.go{width:100%;background:var(--accent);color:#fff;border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:700;cursor:pointer;margin-bottom:8px}
+  button.alt{width:100%;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:15px;cursor:pointer}
+  button:disabled{opacity:.6}
   details{background:var(--card);border-radius:12px;padding:10px 12px;margin-bottom:10px}
   summary{cursor:pointer;color:var(--muted)}
   details input{margin-top:10px;margin-bottom:6px}
-  .hint{color:var(--muted);font-size:12px}
-  .hint a{color:var(--accent)}
+  .hint{color:var(--muted);font-size:12px} .hint a{color:var(--accent)}
   .note{color:var(--muted);font-size:12px;text-align:center;margin-top:10px}
-  .feed{height:80vh;overflow-y:scroll;scroll-snap-type:y mandatory;max-width:420px;margin:12px auto 0}
+  .box{background:var(--card);border-radius:16px;padding:16px;margin-top:8px}
+  .box h2{margin:0 0 12px;font-size:18px}
+  .check{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted);margin-bottom:12px}
+  .check input{margin-top:3px}
+  .msg{font-size:13px;margin:6px 0;min-height:18px}
+  .msg.err{color:#ff7b7b} .msg.ok{color:#7be0a0}
+  h3{max-width:520px;margin:16px auto 8px;padding:0 16px;font-size:16px}
+  .feed{height:80vh;overflow-y:scroll;scroll-snap-type:y mandatory;max-width:420px;margin:0 auto}
   .item{height:80vh;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;position:relative;padding:8px}
   .item img{max-width:100%;max-height:100%;border-radius:16px;object-fit:contain;background:var(--card)}
-  .item a{position:absolute;right:20px;bottom:20px;background:rgba(0,0,0,.6);color:#fff;text-decoration:none;padding:8px 12px;border-radius:999px;font-size:14px}
+  .item .bar{position:absolute;right:20px;bottom:20px;display:flex;gap:8px}
+  .item .bar a,.item .bar button{background:rgba(0,0,0,.65);color:#fff;text-decoration:none;padding:8px 12px;border-radius:999px;font-size:14px;border:0;cursor:pointer}
   .empty{color:var(--muted);text-align:center;padding:40px 16px}
+  .hidden{display:none}
 </style>
 </head>
 <body>
-<header>🎨 Img<span>Gen</span></header>
-<div class="panel">
-  <div class="chips" id="chips"></div>
-  <textarea id="prompt" placeholder="Опиши картинку: что угодно (пейзаж, персонаж, город, еда, фэнтези, пара на закате...)"></textarea>
-  <select id="style">
-    <option value="">Без стиля</option>
-    <option value="cinematic photo, soft light">Кино-фото</option>
-    <option value="anime style, soft colors">Аниме</option>
-    <option value="digital painting, dreamy">Арт</option>
-    <option value="watercolor illustration">Акварель</option>
-    <option value="3d render, pixar-like lighting">3D</option>
-  </select>
-  <select id="ratio">
-    <option value="768x1024">Вертикально 3:4</option>
-    <option value="1024x1024">Квадрат</option>
-    <option value="1024x768">Горизонтально</option>
-  </select>
-  <select id="provider">
-    <option value="pollinations">Pollinations (без ключа)</option>
-    <option value="hf">Hugging Face (бесплатный ключ)</option>
-  </select>
-  <details id="keybox" style="display:none">
-    <summary>API-ключ Hugging Face</summary>
-    <input id="hfkey" type="password" placeholder="hf_..." autocomplete="off">
-    <div class="hint">Бесплатный токен: <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">huggingface.co/settings/tokens</a> (тип Read). Ключ хранится только в твоём браузере и никуда, кроме Hugging Face, не отправляется.</div>
-  </details>
-  <button class="go" id="go">Сгенерировать</button>
-  <div class="note">Любые темы, но без откровенного 18+ контента и без детей: включён безопасный фильтр.</div>
-</div>
-<div class="feed" id="feed"></div>
+<header>
+  <b>🎨 Img<span>Gen</span></b>
+  <div class="me" id="me"></div>
+</header>
 
+<div class="panel">
+  <!-- Не настроено -->
+  <div class="box hidden" id="setup">
+    <h2>Нужна настройка</h2>
+    <div class="hint">Заполни <b>config.js</b> (адрес и anon-ключ Supabase) и выполни <b>supabase.sql</b>. Подробности в README.md.</div>
+  </div>
+
+  <!-- Вход / регистрация -->
+  <div class="box hidden" id="auth">
+    <h2 id="authTitle">Вход</h2>
+    <input type="email" id="email" placeholder="Почта" autocomplete="email">
+    <input type="password" id="pass" placeholder="Пароль (минимум 6 символов)" autocomplete="current-password">
+    <label class="check hidden" id="consentRow">
+      <input type="checkbox" id="consent">
+      <span>Мне есть 18 лет. Я согласен(на), что мои запросы и созданные картинки <b>сохраняются и могут просматриваться администратором</b> для модерации. Откровенный контент и контент с детьми запрещён.</span>
+    </label>
+    <button class="go" id="authBtn">Войти</button>
+    <button class="alt" id="authSwitch">Нет аккаунта? Зарегистрироваться</button>
+    <div class="msg" id="authMsg"></div>
+  </div>
+
+  <!-- Генератор -->
+  <div class="hidden" id="app">
+    <div class="chips" id="chips"></div>
+    <textarea id="prompt" placeholder="Опиши картинку: что угодно (пейзаж, персонаж, город, еда, фэнтези, пара на закате...)"></textarea>
+    <select id="style">
+      <option value="">Без стиля</option>
+      <option value="cinematic photo, soft light">Кино-фото</option>
+      <option value="anime style, soft colors">Аниме</option>
+      <option value="digital painting, dreamy">Арт</option>
+      <option value="watercolor illustration">Акварель</option>
+      <option value="3d render, pixar-like lighting">3D</option>
+    </select>
+    <select id="ratio">
+      <option value="768x1024">Вертикально 3:4</option>
+      <option value="1024x1024">Квадрат</option>
+      <option value="1024x768">Горизонтально</option>
+    </select>
+    <select id="provider">
+      <option value="pollinations">Pollinations (без ключа)</option>
+      <option value="hf">Hugging Face (бесплатный ключ)</option>
+    </select>
+    <details id="keybox" class="hidden">
+      <summary>API-ключ Hugging Face</summary>
+      <input id="hfkey" type="password" placeholder="hf_..." autocomplete="off">
+      <div class="hint">Бесплатный токен (тип Read): <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">huggingface.co/settings/tokens</a>. Хранится только в твоём браузере.</div>
+    </details>
+    <button class="go" id="go">Сгенерировать</button>
+    <div class="msg" id="genMsg"></div>
+    <div class="note">Без откровенного 18+ контента и без детей. Запросы сохраняются для модерации.</div>
+  </div>
+</div>
+
+<h3 class="hidden" id="histTitle">Мои картинки</h3>
+<div class="feed hidden" id="feed"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
 <script>
-const PRESETS=[
+var PRESETS = [
   "космический корабль над неоновым городом",
   "уютный домик в лесу осенью",
   "дракон на вершине горы на рассвете",
@@ -72,79 +116,143 @@ const PRESETS=[
   "киберпанк-улица под дождём",
   "котик-астронавт на луне"
 ];
-const BLOCKED=/(nude|naked|nsfw|sex|porn|explicit|topless|lingerie|erotic|голы|обнажен|секс|порно|эрот|интим|белье|бельё|child|kid|teen|minor|school|loli|ребен|ребён|дет[иь]|школь|подрост|несовершеннолет|лоли)/i;
-const $=id=>document.getElementById(id);
-const chips=$('chips'),feed=$('feed'),go=$('go'),prov=$('provider'),keybox=$('keybox'),hfkey=$('hfkey');
-PRESETS.forEach(p=>{const b=document.createElement('button');b.className='chip';b.textContent=p;
-  b.onclick=()=>$('prompt').value=p;chips.appendChild(b)});
+var user = null, mode = 'login', busy = false;
 
-function lsGet(k,d){try{return localStorage.getItem(k)||d}catch(e){return d}}
-function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
-hfkey.value=lsGet('hfkey','');
-prov.value=lsGet('provider','pollinations');
-function syncProv(){keybox.style.display=prov.value==='hf'?'block':'none';lsSet('provider',prov.value)}
-prov.onchange=syncProv;syncProv();
-hfkey.onchange=()=>lsSet('hfkey',hfkey.value.trim());
+function show(id, on) { $(id).classList.toggle('hidden', !on); }
+function setMsg(id, text, ok) { var m = $(id); m.textContent = text || ''; m.className = 'msg ' + (ok ? 'ok' : 'err'); }
 
-let items=[];
-try{items=JSON.parse(lsGet('imggen','[]'))}catch(e){}
-function save(){
-  // data: URLs are large; keep only http(s) links in storage
-  lsSet('imggen',JSON.stringify(items.filter(u=>u.startsWith('http')).slice(0,30)));
+PRESETS.forEach(function (p) {
+  $('chips').appendChild(el('button', { 'class': 'chip', text: p, onclick: function () { $('prompt').value = p; } }));
+});
+
+/* ---------- auth ---------- */
+function renderAuthMode() {
+  var reg = mode === 'register';
+  $('authTitle').textContent = reg ? 'Регистрация' : 'Вход';
+  $('authBtn').textContent = reg ? 'Зарегистрироваться' : 'Войти';
+  $('authSwitch').textContent = reg ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться';
+  $('pass').setAttribute('autocomplete', reg ? 'new-password' : 'current-password');
+  show('consentRow', reg);
+  setMsg('authMsg', '');
 }
-function render(){
-  feed.innerHTML='';
-  if(!items.length){feed.innerHTML='<div class="empty">Здесь появятся твои картинки. Выбери идею и нажми «Сгенерировать».</div>';return}
-  items.forEach(u=>{
-    const d=document.createElement('div');d.className='item';
-    const dl=u.startsWith('data:')||u.startsWith('blob:');
-    d.innerHTML='<img loading="lazy" src="'+u+'" alt=""><a href="'+u+'" '+(dl?'download="image.png"':'target="_blank" rel="noopener"')+'>'+(dl?'Скачать':'Открыть')+'</a>';
-    feed.appendChild(d);
+$('authSwitch').onclick = function () { mode = mode === 'login' ? 'register' : 'login'; renderAuthMode(); };
+
+$('authBtn').onclick = async function () {
+  var email = $('email').value.trim(), pass = $('pass').value;
+  if (!email || pass.length < 6) { setMsg('authMsg', 'Введи почту и пароль (минимум 6 символов)'); return; }
+  $('authBtn').disabled = true;
+  try {
+    if (mode === 'register') {
+      if (!$('consent').checked) { setMsg('authMsg', 'Нужно подтвердить возраст 18+ и согласие'); return; }
+      var r = await sb.auth.signUp({ email: email, password: pass });
+      if (r.error) { setMsg('authMsg', r.error.message); return; }
+      if (!r.data.session) { setMsg('authMsg', 'Готово! Проверь почту и подтверди адрес, потом войди.', true); mode = 'login'; renderAuthMode(); setMsg('authMsg', 'Готово! Проверь почту и подтверди адрес, потом войди.', true); }
+    } else {
+      var r2 = await sb.auth.signInWithPassword({ email: email, password: pass });
+      if (r2.error) { setMsg('authMsg', 'Не удалось войти: ' + r2.error.message); return; }
+    }
+  } catch (e) { setMsg('authMsg', 'Ошибка: ' + e.message); }
+  finally { $('authBtn').disabled = false; }
+};
+
+async function logout() { await sb.auth.signOut(); }
+
+async function onSession(session) {
+  user = session ? session.user : null;
+  var me = $('me'); me.textContent = '';
+  if (!user) {
+    show('auth', true); show('app', false); show('feed', false); show('histTitle', false);
+    renderAuthMode(); return;
+  }
+  var prof = await sb.from('profiles').select('role,banned').eq('id', user.id).maybeSingle();
+  var role = prof.data ? prof.data.role : 'user';
+  var banned = prof.data ? prof.data.banned : false;
+  me.appendChild(el('div', { text: user.email }));
+  if (role === 'admin') { me.appendChild(el('a', { href: 'admin.html', text: 'Админка' })); me.appendChild(document.createTextNode(' · ')); }
+  me.appendChild(el('button', { 'class': 'link', text: 'Выйти', onclick: logout }));
+  show('auth', false);
+  if (banned) { show('app', false); show('feed', false); show('histTitle', false); show('setup', true); $('setup').firstElementChild.textContent = 'Доступ закрыт'; $('setup').lastElementChild.textContent = 'Твой аккаунт заблокирован администратором.'; return; }
+  show('setup', false); show('app', true); show('feed', true); show('histTitle', true);
+  loadHistory();
+}
+
+/* ---------- generator ---------- */
+var prov = $('provider'), hfkey = $('hfkey');
+hfkey.value = lsGet('hfkey', '');
+prov.value = lsGet('provider', 'pollinations');
+function syncProv() { show('keybox', prov.value === 'hf'); lsSet('provider', prov.value); }
+prov.onchange = syncProv; syncProv();
+hfkey.onchange = function () { lsSet('hfkey', hfkey.value.trim()); };
+
+async function saveGeneration(prompt, provider, url) {
+  var r = await sb.from('generations').insert({ user_id: user.id, prompt: prompt, provider: provider, image_url: url });
+  if (r.error) throw new Error(r.error.message);
+}
+
+$('go').onclick = async function () {
+  if (busy || !user) return;
+  var text = $('prompt').value.trim();
+  if (!text) { setMsg('genMsg', 'Опиши картинку'); return; }
+  if (BLOCKED.test(text)) { setMsg('genMsg', 'Такой запрос нельзя: откровенный контент и дети запрещены.'); return; }
+  var wh = $('ratio').value.split('x'), w = +wh[0], h = +wh[1];
+  var style = $('style').value;
+  var full = text + (style ? ', ' + style : '') + ', safe for work';
+  busy = true; $('go').disabled = true; $('go').textContent = 'Генерирую...'; setMsg('genMsg', '');
+  try {
+    var url;
+    if (prov.value === 'hf') {
+      var key = hfkey.value.trim();
+      if (!key) throw new Error('Вставь ключ Hugging Face');
+      lsSet('hfkey', key);
+      var r = await fetch('https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json', 'Accept': 'image/png' },
+        body: JSON.stringify({ inputs: full, parameters: { width: w, height: h } })
+      });
+      if (!r.ok) throw new Error('Hugging Face (' + r.status + '): ' + (await r.text()).slice(0, 150));
+      var blob = await r.blob();
+      var path = user.id + '/' + Date.now() + '.png';
+      var up = await sb.storage.from('images').upload(path, blob, { contentType: 'image/png' });
+      if (up.error) throw new Error('Загрузка картинки: ' + up.error.message);
+      url = sb.storage.from('images').getPublicUrl(path).data.publicUrl;
+    } else {
+      var seed = Math.floor(Math.random() * 1e9);
+      url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(full) + '?width=' + w + '&height=' + h + '&seed=' + seed + '&nologo=true&safe=true';
+      await new Promise(function (ok, bad) { var im = new Image(); im.onload = ok; im.onerror = function () { bad(new Error('Pollinations не ответил, попробуй ещё раз')); }; im.src = url; });
+    }
+    await saveGeneration(text, prov.value, url);
+    await loadHistory();
+    $('feed').scrollTop = 0;
+  } catch (e) { setMsg('genMsg', e.message); }
+  finally { busy = false; $('go').disabled = false; $('go').textContent = 'Сгенерировать'; }
+};
+
+/* ---------- history ---------- */
+async function loadHistory() {
+  var feed = $('feed'); feed.textContent = '';
+  var r = await sb.from('generations').select('id,prompt,image_url,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50);
+  if (r.error) { feed.appendChild(el('div', { 'class': 'empty', text: 'Не удалось загрузить: ' + r.error.message })); return; }
+  if (!r.data.length) { feed.appendChild(el('div', { 'class': 'empty', text: 'Здесь появятся твои картинки. Выбери идею и нажми «Сгенерировать».' })); return; }
+  r.data.forEach(function (g) {
+    var bar = el('div', { 'class': 'bar' }, [
+      el('a', { href: g.image_url, target: '_blank', rel: 'noopener', text: 'Открыть' }),
+      el('button', { text: 'Удалить', onclick: async function () {
+        if (!confirm('Удалить картинку?')) return;
+        var d = await sb.from('generations').delete().eq('id', g.id);
+        if (d.error) alert(d.error.message); else loadHistory();
+      } })
+    ]);
+    feed.appendChild(el('div', { 'class': 'item' }, [el('img', { loading: 'lazy', src: g.image_url, alt: '' }), bar]));
   });
 }
-function done(url){items.unshift(url);save();render();feed.scrollTop=0;go.disabled=false;go.textContent='Сгенерировать'}
-function fail(msg){alert(msg);go.disabled=false;go.textContent='Сгенерировать'}
 
-go.onclick=async()=>{
-  const text=$('prompt').value.trim();
-  if(!text){alert('Опиши картинку');return}
-  if(BLOCKED.test(text)){alert('Такой запрос нельзя: откровенный контент и дети запрещены.');return}
-  const [w,h]=$('ratio').value.split('x');
-  const style=$('style').value;
-  const full=text+(style?', '+style:'')+', safe for work';
-  go.disabled=true;go.textContent='Генерирую...';
-
-  if(prov.value==='hf'){
-    const key=hfkey.value.trim();
-    if(!key){fail('Вставь ключ Hugging Face');return}
-    lsSet('hfkey',key);
-    try{
-      const r=await fetch('https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',{
-        method:'POST',
-        headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json','Accept':'image/png'},
-        body:JSON.stringify({inputs:full,parameters:{width:+w,height:+h}})
-      });
-      if(!r.ok){
-        const t=await r.text();
-        fail('Ошибка Hugging Face ('+r.status+'): '+t.slice(0,150));return;
-      }
-      const blob=await r.blob();
-      const reader=new FileReader();
-      reader.onload=()=>done(reader.result);
-      reader.readAsDataURL(blob);
-    }catch(e){fail('Не получилось связаться с Hugging Face: '+e.message)}
-    return;
-  }
-
-  const seed=Math.floor(Math.random()*1e9);
-  const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(full)
-    +'?width='+w+'&height='+h+'&seed='+seed+'&nologo=true&safe=true';
-  const img=new Image();
-  img.onload=()=>done(url);
-  img.onerror=()=>fail('Не получилось, попробуй ещё раз');
-  img.src=url;
-};
-render();
+/* ---------- start ---------- */
+(async function () {
+  if (!configured()) { show('setup', true); return; }
+  sb.auth.onAuthStateChange(function (ev, session) { onSession(session); });
+  var s = await sb.auth.getSession();
+  onSession(s.data.session);
+})();
 </script>
 </body>
 </html>
