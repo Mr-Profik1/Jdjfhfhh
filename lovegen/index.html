@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Love Gen</title>
+<style>
+  :root{--bg:#0f0b14;--card:#1b1424;--accent:#ff4d8d;--text:#f5eefa;--muted:#a99bb8}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif}
+  header{padding:16px;text-align:center;font-weight:700;font-size:20px}
+  header span{color:var(--accent)}
+  .panel{max-width:520px;margin:0 auto;padding:0 16px 16px}
+  textarea,select{width:100%;background:var(--card);color:var(--text);border:1px solid #3a2b4a;border-radius:12px;padding:12px;font-size:16px;margin-bottom:10px}
+  textarea{min-height:80px;resize:vertical}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .chip{background:var(--card);border:1px solid #3a2b4a;color:var(--text);padding:8px 12px;border-radius:999px;font-size:14px;cursor:pointer}
+  .chip:hover{border-color:var(--accent)}
+  button.go{width:100%;background:var(--accent);color:#fff;border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:700;cursor:pointer}
+  button.go:disabled{opacity:.6}
+  .note{color:var(--muted);font-size:12px;text-align:center;margin-top:10px}
+  .feed{height:80vh;overflow-y:scroll;scroll-snap-type:y mandatory;max-width:420px;margin:12px auto 0}
+  .item{height:80vh;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;position:relative;padding:8px}
+  .item img{max-width:100%;max-height:100%;border-radius:16px;object-fit:contain;background:var(--card)}
+  .item a{position:absolute;right:20px;bottom:20px;background:rgba(0,0,0,.6);color:#fff;text-decoration:none;padding:8px 12px;border-radius:999px;font-size:14px}
+  .empty{color:var(--muted);text-align:center;padding:40px 16px}
+</style>
+</head>
+<body>
+<header>💞 Love<span>Gen</span></header>
+<div class="panel">
+  <div class="chips" id="chips"></div>
+  <textarea id="prompt" placeholder="Опиши сцену: двое взрослых обнимаются на закате у моря..."></textarea>
+  <select id="style">
+    <option value="cinematic photo, soft light">Кино-фото</option>
+    <option value="anime style, soft colors">Аниме</option>
+    <option value="digital painting, dreamy">Арт</option>
+    <option value="watercolor illustration">Акварель</option>
+  </select>
+  <select id="ratio">
+    <option value="768x1024">Вертикально 3:4</option>
+    <option value="1024x1024">Квадрат</option>
+    <option value="1024x768">Горизонтально</option>
+  </select>
+  <button class="go" id="go">Сгенерировать</button>
+  <div class="note">Только взрослые персонажи, одетые, романтика без откровенного контента. Включён безопасный фильтр.</div>
+</div>
+<div class="feed" id="feed"></div>
+
+<script>
+const PRESETS=[
+  "двое взрослых обнимаются на закате у моря",
+  "пара целуется под дождём с зонтом",
+  "влюблённые обнимаются в осеннем парке",
+  "поцелуй на крыше города ночью",
+  "пара танцует медленный танец в гостиной",
+  "объятия на вокзале после долгой разлуки"
+];
+const BLOCKED=/(nude|naked|nsfw|sex|porn|explicit|topless|lingerie|erotic|голы|обнажен|секс|порно|эрот|интим|белье|бельё|child|kid|teen|minor|school|ребен|ребён|дет[иь]|школь|подрост|несовершеннолет)/i;
+const chips=document.getElementById('chips'),prompt_=document.getElementById('prompt'),
+      feed=document.getElementById('feed'),go=document.getElementById('go');
+PRESETS.forEach(p=>{const b=document.createElement('button');b.className='chip';b.textContent=p;
+  b.onclick=()=>prompt_.value=p;chips.appendChild(b)});
+
+let items=[];
+try{items=JSON.parse(localStorage.getItem('lovegen')||'[]')}catch(e){}
+function save(){try{localStorage.setItem('lovegen',JSON.stringify(items.slice(0,30)))}catch(e){}}
+function render(){
+  feed.innerHTML='';
+  if(!items.length){feed.innerHTML='<div class="empty">Здесь появятся твои картинки. Выбери идею и нажми «Сгенерировать».</div>';return}
+  items.forEach(u=>{
+    const d=document.createElement('div');d.className='item';
+    d.innerHTML='<img loading="lazy" src="'+u+'" alt=""><a href="'+u+'" target="_blank" rel="noopener">Открыть</a>';
+    feed.appendChild(d);
+  });
+}
+go.onclick=()=>{
+  const text=prompt_.value.trim();
+  if(!text){alert('Опиши сцену');return}
+  if(BLOCKED.test(text)){alert('Такой запрос нельзя. Допустимы только романтичные сцены со взрослыми, без откровенного контента.');return}
+  const [w,h]=document.getElementById('ratio').value.split('x');
+  const full=text+', two adults, fully clothed, wholesome romantic scene, '+document.getElementById('style').value;
+  const seed=Math.floor(Math.random()*1e9);
+  const url='https://image.pollinations.ai/prompt/'+encodeURIComponent(full)
+    +'?width='+w+'&height='+h+'&seed='+seed+'&nologo=true&safe=true';
+  go.disabled=true;go.textContent='Генерирую...';
+  const img=new Image();
+  img.onload=()=>{items.unshift(url);save();render();feed.scrollTop=0;go.disabled=false;go.textContent='Сгенерировать'};
+  img.onerror=()=>{alert('Не получилось, попробуй ещё раз');go.disabled=false;go.textContent='Сгенерировать'};
+  img.src=url;
+};
+render();
+</script>
+</body>
+</html>
