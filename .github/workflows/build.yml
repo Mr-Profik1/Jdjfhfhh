@@ -1,0 +1,59 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build launcher
+        shell: bash
+        run: |
+          mkdir -p dist
+          go build -ldflags "-s -w" -o dist/LiteDroid.exe .
+
+      - name: Install QEMU
+        shell: pwsh
+        run: choco install qemu -y --no-progress
+
+      - name: Bundle QEMU (x86_64 only)
+        shell: pwsh
+        run: |
+          $src = "C:\Program Files\qemu"
+          if (-not (Test-Path $src)) { throw "QEMU not found at $src" }
+          Copy-Item $src dist\qemu -Recurse
+          Get-ChildItem dist\qemu -Filter "qemu-system-*.exe" |
+            Where-Object { $_.Name -ne "qemu-system-x86_64.exe" } |
+            Remove-Item -Force
+          Remove-Item dist\qemu\qemu-system-x86_64w.exe -ErrorAction SilentlyContinue
+          Remove-Item dist\qemu\qemu-uninstall.exe -ErrorAction SilentlyContinue
+          Copy-Item README.md dist\README.md
+          Get-ChildItem dist | Select-Object Name
+
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path dist\* -DestinationPath LiteDroid-win64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LiteDroid-win64
+          path: LiteDroid-win64.zip
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: LiteDroid v${{ github.run_number }}
+          files: LiteDroid-win64.zip
