@@ -34,6 +34,11 @@ func main() {
 	qemuImg := filepath.Join(base, "qemu", "qemu-img.exe")
 	dataDir := filepath.Join(base, "data")
 	iso := filepath.Join(dataDir, isoName)
+	// Свой образ (например, с Google Play) можно положить в папку data как custom.iso.
+	if custom := filepath.Join(dataDir, "custom.iso"); fileExists(custom) {
+		iso = custom
+		fmt.Println("Найден свой образ custom.iso, использую его.")
+	}
 	disk := filepath.Join(dataDir, diskName)
 	marker := filepath.Join(dataDir, markerName)
 

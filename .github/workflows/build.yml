@@ -22,7 +22,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
+          go run github.com/akavel/rsrc@v0.10.2 -ico icon.ico -o rsrc_windows_amd64.syso
           go build -ldflags "-s -w" -o dist/LiteDroid.exe .
+          ls -la dist/LiteDroid.exe
 
       - name: Install QEMU
         shell: pwsh
