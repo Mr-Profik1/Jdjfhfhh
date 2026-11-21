@@ -19,8 +19,8 @@ const (
 	diskName    = "android.qcow2"
 	markerName  = "installed.flag"
 	minISOBytes = 500 * 1024 * 1024
-	ramMB       = "1024"
-	cpuCores    = "2"
+	defaultRAM  = "1024"
+	defaultCPUs = "2"
 	diskSize    = "10G"
 )
 
@@ -52,6 +52,8 @@ func main() {
 	}
 
 	installed := fileExists(marker)
+	ramMB, cpuCores := loadConfig(filepath.Join(base, "litedroid.ini"))
+	fmt.Printf("Память Android: %s МБ, ядер: %s (меняется в litedroid.ini)\n", ramMB, cpuCores)
 
 	// Образ Android нужен только для первой установки.
 	if !installed && !validISO(iso) {
@@ -73,11 +75,12 @@ func main() {
 		"-machine", "q35",
 		// Ускорение через Windows Hypervisor Platform, если оно включено, иначе медленная программная эмуляция.
 		"-accel", "whpx,kernel-irqchip=off",
-		"-accel", "tcg,thread=multi",
+		"-accel", "tcg,thread=multi,tb-size=128",
 		"-cpu", "max",
 		"-smp", cpuCores,
 		"-m", ramMB,
 		"-drive", "file=" + disk + ",format=qcow2",
+		"-device", "virtio-balloon-pci", // возвращает неиспользуемую память Windows
 		"-vga", "std",
 		"-display", "gtk",
 		"-device", "qemu-xhci",
@@ -119,6 +122,35 @@ func main() {
 			fmt.Println("Готово. Запустите LiteDroid.exe снова.")
 		}
 	}
+}
+
+// loadConfig читает litedroid.ini (строки ram=... и cores=...), при отсутствии создаёт файл с минимальными значениями.
+func loadConfig(path string) (string, string) {
+	ram, cores := defaultRAM, defaultCPUs
+	data, err := os.ReadFile(path)
+	if err != nil {
+		def := "# Память Android в МБ. 1024 это минимум для Android 9, на 4 ГБ ПК лучше не больше 1536.\nram=" + ram + "\n# Число ядер процессора.\ncores=" + cores + "\n"
+		_ = os.WriteFile(path, []byte(def), 0o644)
+		return ram, cores
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
+			continue
+		}
+		kv := strings.SplitN(line, "=", 2)
+		k, v := strings.TrimSpace(kv[0]), strings.TrimSpace(kv[1])
+		if v == "" || strings.Trim(v, "0123456789") != "" {
+			continue
+		}
+		switch k {
+		case "ram":
+			ram = v
+		case "cores":
+			cores = v
+		}
+	}
+	return ram, cores
 }
 
 func fileExists(p string) bool {
